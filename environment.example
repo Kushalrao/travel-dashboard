@@ -1,0 +1,31 @@
+# Travel Dashboard Environment Configuration
+# Copy this file to .env and update with your actual values
+
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+
+# Slack Integration (Optional)
+# Get your webhook URL from: https://api.slack.com/apps
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+
+# Frontend Configuration (for CORS)
+FRONTEND_URL=http://localhost:3001
+
+# Google Maps API (for frontend)
+REACT_APP_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+
+# Database Configuration (Future Enhancement)
+# DATABASE_URL=postgresql://user:password@localhost:5432/travel_dashboard
+
+# Logging Configuration
+LOG_LEVEL=info
+
+# Security Configuration (Production)
+# API_KEY=your_secure_api_key_here
+# JWT_SECRET=your_jwt_secret_for_authentication
+
+# Instructions:
+# 1. Copy this file: cp environment.example .env
+# 2. Update values with your actual configuration
+# 3. Never commit .env to version control 
