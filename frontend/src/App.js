@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Layout, Typography, Space, Spin, Alert, Button, Card, Row, Col } from 'antd';
 import { DashboardOutlined, GlobalOutlined, ReloadOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import Dashboard from './components/Dashboard';
@@ -19,7 +19,7 @@ function App() {
     ? window.location.origin 
     : 'http://localhost:3000';
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setError(null);
       
@@ -46,18 +46,18 @@ function App() {
       setError(err.message);
       setLoading(false);
     }
-  };
+  }, [API_BASE_URL]);
 
   // Initial data fetch
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchData]);
 
   if (loading) {
     return (
