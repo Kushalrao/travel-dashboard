@@ -79,11 +79,18 @@ function processBooking(booking) {
   }
   
   // Look up airport data
+  console.log(`Looking up airport: ${arrival.airport}`);
+  console.log(`Total airports loaded: ${Object.keys(airportData).length}`);
+  console.log(`Sample airport codes: ${Object.keys(airportData).slice(0, 5).join(', ')}`);
+  
   const airportInfo = airportData[arrival.airport];
   if (!airportInfo) {
-    console.log(`Unknown airport code: ${arrival.airport}`);
+    console.log(`❌ Unknown airport code: ${arrival.airport}`);
+    console.log(`Available codes starting with J: ${Object.keys(airportData).filter(code => code.startsWith('J')).slice(0, 10).join(', ')}`);
     return false;
   }
+  
+  console.log(`✅ Found airport: ${airportInfo.airport} in ${airportInfo.country}`);
   
   // Update counters
   dailyData.totalBookings++;
