@@ -10,6 +10,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Store SSE connections for real-time updates
+let sseClients = [];
+
 // Load IATA airport data
 let airportData = {};
 try {
@@ -121,7 +124,64 @@ function processBooking(booking) {
   });
   
   dailyData.lastUpdated = new Date().toISOString();
+  
+  // Broadcast new booking to connected clients for real-time animation
+  broadcastToClients({
+    type: 'new_booking',
+    booking: {
+      id: booking_id,
+      airport: arrival.airport,
+      airportName: airportInfo.airport,
+      country: airportInfo.country,
+      continent: airportInfo.continent,
+      coordinates: [airportInfo.lat, airportInfo.lng],
+      date,
+      status
+    },
+    timestamp: new Date().toISOString()
+  });
+  
   return true;
+}
+
+// Server-Sent Events endpoint for real-time updates
+app.get('/api/events', (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Cache-Control'
+  });
+
+  // Add client to SSE connections
+  const clientId = Date.now();
+  const newClient = {
+    id: clientId,
+    response: res
+  };
+  sseClients.push(newClient);
+
+  // Send initial connection confirmation
+  res.write(`data: ${JSON.stringify({ type: 'connected', clientId })}\n\n`);
+
+  // Remove client when connection closes
+  req.on('close', () => {
+    sseClients = sseClients.filter(client => client.id !== clientId);
+    console.log(`SSE client ${clientId} disconnected`);
+  });
+});
+
+// Function to broadcast events to all connected clients
+function broadcastToClients(event) {
+  const message = `data: ${JSON.stringify(event)}\n\n`;
+  sseClients.forEach(client => {
+    try {
+      client.response.write(message);
+    } catch (error) {
+      console.error('Error sending SSE message:', error);
+    }
+  });
 }
 
 // Health check endpoint

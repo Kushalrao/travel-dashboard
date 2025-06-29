@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { Wrapper, Status } from '@googlemaps/react-wrapper';
 
 const mapOptions = {
@@ -18,6 +18,10 @@ const mapOptions = {
 const Map = ({ data }) => {
   const [map, setMap] = useState(null);
   const [markers, setMarkers] = useState([]);
+  const [animationQueue, setAnimationQueue] = useState([]);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const animationTimeoutRef = useRef(null);
+  const eventSourceRef = useRef(null);
 
   const ref = useCallback((node) => {
     if (node !== null) {
@@ -199,6 +203,147 @@ const Map = ({ data }) => {
     }
 
   }, [map, data, markers]);
+
+  // Set up Server-Sent Events connection for real-time bookings
+  useEffect(() => {
+    if (!map) return;
+
+    const API_BASE = process.env.NODE_ENV === 'production' 
+      ? 'https://travel-dashboard-gold.vercel.app' 
+      : 'http://localhost:3000';
+
+    console.log('🔌 Setting up SSE connection to:', `${API_BASE}/api/events`);
+    
+    const eventSource = new EventSource(`${API_BASE}/api/events`);
+    eventSourceRef.current = eventSource;
+
+    eventSource.onopen = () => {
+      console.log('✅ SSE connection opened');
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📨 SSE message received:', data);
+
+        if (data.type === 'new_booking') {
+          console.log('🎯 New booking animation queued:', data.booking);
+          setAnimationQueue(prev => [...prev, data.booking]);
+        }
+      } catch (error) {
+        console.error('❌ Error parsing SSE message:', error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('❌ SSE connection error:', error);
+    };
+
+    return () => {
+      console.log('🔌 Closing SSE connection');
+      eventSource.close();
+    };
+  }, [map]);
+
+  // Process animation queue
+  useEffect(() => {
+    if (!map || isAnimating || animationQueue.length === 0) return;
+
+    const processNextAnimation = async () => {
+      setIsAnimating(true);
+      const booking = animationQueue[0];
+      
+      console.log('🎬 Starting animation for booking:', booking.id);
+      
+      try {
+        // Get current map state
+        const currentCenter = map.getCenter();
+        const currentZoom = map.getZoom();
+        
+        // Step 1: Zoom to country (2 seconds)
+        console.log('🔍 Step 1: Zooming to booking location...');
+        map.panTo({ lat: booking.coordinates[0], lng: booking.coordinates[1] });
+        map.setZoom(6);
+        
+        await new Promise(resolve => {
+          animationTimeoutRef.current = setTimeout(resolve, 2000);
+        });
+        
+        // Step 2: Create pulsing marker for new booking (1-2 seconds)
+        console.log('💓 Step 2: Creating pulse animation...');
+        const pulseMarker = new window.google.maps.Marker({
+          position: { lat: booking.coordinates[0], lng: booking.coordinates[1] },
+          map: map,
+          icon: {
+            url: `data:image/svg+xml,${encodeURIComponent(`
+              <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60">
+                <defs>
+                  <radialGradient id="pulseGradient" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" style="stop-color:#ff6b6b;stop-opacity:1" />
+                    <stop offset="70%" style="stop-color:#ff8e8e;stop-opacity:0.8" />
+                    <stop offset="100%" style="stop-color:#ffb3b3;stop-opacity:0.3" />
+                  </radialGradient>
+                  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                    <feMerge> 
+                      <feMergeNode in="coloredBlur"/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+                </defs>
+                <circle cx="30" cy="30" r="25" fill="url(#pulseGradient)" filter="url(#glow)">
+                  <animate attributeName="r" values="20;30;20" dur="1s" repeatCount="indefinite"/>
+                  <animate attributeName="opacity" values="1;0.5;1" dur="1s" repeatCount="indefinite"/>
+                </circle>
+                <circle cx="30" cy="30" r="15" fill="#ff4757" stroke="#fff" stroke-width="2"/>
+                <text x="30" y="36" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="12" font-weight="bold">
+                  NEW
+                </text>
+              </svg>
+            `)}`,
+            scaledSize: new window.google.maps.Size(60, 60),
+            anchor: new window.google.maps.Point(30, 30)
+          },
+          title: `New Booking: ${booking.airportName} (${booking.airport})`
+        });
+        
+        await new Promise(resolve => {
+          animationTimeoutRef.current = setTimeout(resolve, 1500);
+        });
+        
+        // Step 3: Zoom back out (2 seconds)
+        console.log('🔍 Step 3: Zooming back out...');
+        pulseMarker.setMap(null); // Remove pulse marker
+        
+        map.panTo(currentCenter);
+        map.setZoom(currentZoom);
+        
+        await new Promise(resolve => {
+          animationTimeoutRef.current = setTimeout(resolve, 2000);
+        });
+        
+        console.log('✅ Animation completed for booking:', booking.id);
+        
+      } catch (error) {
+        console.error('❌ Animation error:', error);
+      }
+      
+      // Remove processed booking from queue
+      setAnimationQueue(prev => prev.slice(1));
+      setIsAnimating(false);
+    };
+
+    processNextAnimation();
+  }, [map, animationQueue, isAnimating]);
+
+  // Cleanup animation timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (animationTimeoutRef.current) {
+        clearTimeout(animationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return <div ref={ref} style={{ width: '100%', height: '100%' }} />;
 };
