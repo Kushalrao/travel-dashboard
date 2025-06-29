@@ -15,12 +15,100 @@ const mapOptions = {
   fullscreenControl: true
 };
 
+// Custom HTML Marker Overlay for reliable airplane icons
+const createAirplaneMarker = (position, map, bookingInfo) => {
+  const marker = new window.google.maps.OverlayView();
+  
+  marker.position = position;
+  marker.bookingInfo = bookingInfo;
+  marker.div = null;
+  
+  marker.onAdd = function() {
+    const div = document.createElement('div');
+    div.style.position = 'absolute';
+    div.style.cursor = 'pointer';
+    div.style.zIndex = '1000';
+    div.innerHTML = `
+      <div style="
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: bounce 1s ease-in-out infinite alternate, pulse 2s ease-in-out infinite;
+        transform-origin: center;
+      ">
+        <div style="
+          width: 40px;
+          height: 40px;
+          background: linear-gradient(45deg, #FF4444, #FF6666);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4);
+          border: 3px solid white;
+        ">
+          <div style="
+            font-size: 20px;
+            transform: rotate(45deg);
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+          ">✈️</div>
+        </div>
+      </div>
+      <style>
+        @keyframes bounce {
+          0% { transform: translateY(0px) scale(1); }
+          100% { transform: translateY(-10px) scale(1.1); }
+        }
+        @keyframes pulse {
+          0%, 100% { box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4); }
+          50% { box-shadow: 0 6px 25px rgba(255, 68, 68, 0.8); }
+        }
+      </style>
+    `;
+    
+    this.div = div;
+    this.getPanes().overlayMouseTarget.appendChild(div);
+    
+    // Add click handler
+    div.addEventListener('click', () => {
+      console.log('🎯 Clicked airplane marker:', bookingInfo);
+    });
+  };
+  
+  marker.draw = function() {
+    if (!this.div) return;
+    
+    const overlayProjection = this.getProjection();
+    const position = overlayProjection.fromLatLngToDivPixel(this.position);
+    
+    if (position) {
+      this.div.style.left = (position.x - 30) + 'px'; // Center the 60px wide marker
+      this.div.style.top = (position.y - 30) + 'px';  // Center the 60px tall marker
+    }
+  };
+  
+  marker.onRemove = function() {
+    if (this.div && this.div.parentNode) {
+      this.div.parentNode.removeChild(this.div);
+      this.div = null;
+    }
+  };
+  
+  marker.setMap(map);
+  return marker;
+};
+
 const Map = ({ data }) => {
   const [map, setMap] = useState(null);
   const [markers, setMarkers] = useState([]);
   const [animationQueue, setAnimationQueue] = useState([]);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [tileCacheStatus, setTileCacheStatus] = useState({});
   const animationTimeoutRef = useRef(null);
+  const tileCacheRef = useRef(new Set());
 
   const ref = useCallback((node) => {
     if (node !== null) {
@@ -203,6 +291,91 @@ const Map = ({ data }) => {
 
   }, [map, data, markers]);
 
+  // Utility function to wait for tiles to load
+  const waitForTilesLoaded = useCallback((targetZoom, targetLocation, timeout = 8000) => {
+    return new Promise((resolve) => {
+      console.log(`🗺️ Waiting for tiles to load at zoom ${targetZoom}...`);
+      
+      let tilesLoadedListener;
+      let timeoutId;
+      
+      const cleanup = () => {
+        if (tilesLoadedListener) {
+          window.google.maps.event.removeListener(tilesLoadedListener);
+        }
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      };
+      
+      // Set up tiles loaded listener
+      tilesLoadedListener = map.addListener('tilesloaded', () => {
+        console.log('✅ Tiles loaded successfully');
+        cleanup();
+        resolve(true);
+      });
+      
+      // Fallback timeout
+      timeoutId = setTimeout(() => {
+        console.log('⏰ Tile loading timeout, proceeding anyway');
+        cleanup();
+        resolve(false);
+      }, timeout);
+      
+      // Trigger the zoom/pan that will load tiles
+      if (targetLocation) {
+        map.panTo(targetLocation);
+      }
+      if (targetZoom) {
+        map.setZoom(targetZoom);
+      }
+    });
+  }, [map]);
+
+  // Pre-cache tiles for queued bookings
+  const preCacheTiles = useCallback(async (bookings) => {
+    if (!map || bookings.length === 0) return;
+    
+    console.log(`🔄 Pre-caching tiles for ${bookings.length} upcoming bookings...`);
+    
+    for (const booking of bookings.slice(0, 3)) { // Cache first 3 in queue
+      const cacheKey = `${booking.coordinates[0]}_${booking.coordinates[1]}_8`;
+      
+      if (!tileCacheRef.current.has(cacheKey)) {
+        console.log(`📦 Pre-caching tiles for ${booking.airport}...`);
+        
+        // Briefly zoom to location to cache tiles (invisible to user)
+        const currentZoom = map.getZoom();
+        const currentCenter = map.getCenter();
+        
+        // Quick invisible cache (very fast zoom)
+        map.setZoom(8);
+        map.panTo({ lat: booking.coordinates[0], lng: booking.coordinates[1] });
+        
+        // Wait a moment for tiles to start loading
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Restore original view
+        map.setZoom(currentZoom);
+        map.panTo(currentCenter);
+        
+        tileCacheRef.current.add(cacheKey);
+        console.log(`✅ Cached tiles for ${booking.airport}`);
+        
+        // Small delay between cache operations
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+  }, [map]);
+
+  // Pre-cache tiles when animation queue changes
+  useEffect(() => {
+    if (!isAnimating && animationQueue.length > 1) {
+      // Pre-cache tiles for upcoming bookings while current animation runs
+      preCacheTiles(animationQueue.slice(1));
+    }
+  }, [animationQueue, isAnimating, preCacheTiles]);
+
   // Set up polling for real-time bookings
   useEffect(() => {
     if (!map) return;
@@ -275,83 +448,64 @@ const Map = ({ data }) => {
           currentCenter: currentCenter.toJSON()
         });
         
-        // Step 1: Zoom to country (2 seconds)
-        console.log('🔍 Step 1: Zooming to booking location...');
+        // Step 1: Smooth zoom to booking location with tile loading
+        console.log('🔍 Step 1: Zooming to booking location and waiting for tiles...');
         
-        // Use smooth animation for panTo and setZoom
         const targetLocation = { lat: booking.coordinates[0], lng: booking.coordinates[1] };
         
-        // Animate to location with smooth transition
-        map.panTo(targetLocation);
+        // Wait for tiles to load at target location and zoom level
+        const tilesLoaded = await waitForTilesLoaded(8, targetLocation);
         
-        // Wait a bit for pan to start, then zoom
-        setTimeout(() => {
-          map.setZoom(8); // Increased zoom level for better visibility
-        }, 500);
+        if (tilesLoaded) {
+          console.log('✅ Tiles loaded, location is ready for animation');
+        } else {
+          console.log('⚠️ Proceeding with animation despite tile loading timeout');
+        }
+        
+        // Small delay to ensure smooth visual transition
+        await new Promise(resolve => {
+          animationTimeoutRef.current = setTimeout(resolve, 1000);
+        });
+        
+        // Step 2: Create custom airplane marker (3 seconds)
+        console.log('✈️ Step 2: Creating airplane marker animation...');
+        
+        // Create custom airplane marker using HTML overlay
+        const airplaneMarker = createAirplaneMarker(
+          new window.google.maps.LatLng(booking.coordinates[0], booking.coordinates[1]),
+          map,
+          {
+            bookingId: booking.id,
+            airport: booking.airport,
+            airportName: booking.airportName,
+            country: booking.country
+          }
+        );
+        
+        console.log('🎯 Airplane marker created and should be visible!');
         
         await new Promise(resolve => {
-          animationTimeoutRef.current = setTimeout(resolve, 2500); // Extended time for smooth transition
+          animationTimeoutRef.current = setTimeout(resolve, 3000); // Let airplane be visible for 3 seconds
         });
         
-        // Step 2: Create pulsing marker for new booking (2 seconds)
-        console.log('💓 Step 2: Creating pulse animation...');
+        // Step 3: Smooth zoom back to overview
+        console.log('🔍 Step 3: Zooming back to overview and waiting for tiles...');
         
-        // Create a simple, highly visible pulsing marker
-        const pulseMarker = new window.google.maps.Marker({
-          position: { lat: booking.coordinates[0], lng: booking.coordinates[1] },
-          map: map,
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            fillColor: '#FF4444',
-            fillOpacity: 0.8,
-            strokeColor: '#FFFFFF',
-            strokeWeight: 3,
-            scale: 25
-          },
-          title: `🎯 NEW BOOKING: ${booking.airportName} (${booking.airport})`,
-          animation: window.google.maps.Animation.BOUNCE
-        });
+        // Clean up airplane marker
+        airplaneMarker.setMap(null);
         
-        // Add a second larger circle for pulse effect
-        const pulseCircle = new window.google.maps.Circle({
-          strokeColor: '#FF4444',
-          strokeOpacity: 0.8,
-          strokeWeight: 2,
-          fillColor: '#FF4444',
-          fillOpacity: 0.2,
-          map: map,
-          center: { lat: booking.coordinates[0], lng: booking.coordinates[1] },
-          radius: 50000 // 50km radius
-        });
+        // Wait for tiles to load back at overview level
+        const overviewTilesLoaded = await waitForTilesLoaded(currentZoom, currentCenter);
         
-        // Animate the circle radius for pulse effect
-        let pulseRadius = 30000;
-        const pulseInterval = setInterval(() => {
-          pulseRadius = pulseRadius === 30000 ? 70000 : 30000;
-          pulseCircle.setRadius(pulseRadius);
-        }, 600);
+        if (overviewTilesLoaded) {
+          console.log('✅ Overview tiles loaded, animation complete');
+        } else {
+          console.log('⚠️ Overview tiles timeout, but animation complete');
+        }
         
+        // Final delay to ensure smooth transition
         await new Promise(resolve => {
-          animationTimeoutRef.current = setTimeout(resolve, 2000);
-        });
-        
-        // Step 3: Zoom back out (2 seconds)
-        console.log('🔍 Step 3: Zooming back out...');
-        
-        // Clean up pulse effects
-        clearInterval(pulseInterval);
-        pulseMarker.setMap(null);
-        pulseCircle.setMap(null);
-        
-        // Smooth zoom back to original view
-        setTimeout(() => {
-          map.setZoom(currentZoom);
-        }, 500);
-        
-        map.panTo(currentCenter);
-        
-        await new Promise(resolve => {
-          animationTimeoutRef.current = setTimeout(resolve, 2500);
+          animationTimeoutRef.current = setTimeout(resolve, 1000);
         });
         
         console.log('✅ Animation completed for booking:', booking.id);
