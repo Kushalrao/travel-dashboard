@@ -13,13 +13,22 @@ app.use(express.json());
 // Load IATA airport data
 let airportData = {};
 try {
-  const airports = JSON.parse(fs.readFileSync('iata-airports.json', 'utf8'));
-  airports.forEach(airport => {
-    airportData[airport.iata] = airport;
-  });
-  console.log(`Loaded ${Object.keys(airportData).length} airports`);
+  // Try to load from JavaScript module first (more reliable for Vercel)
+  airportData = require('./airports-data.js');
+  console.log(`Loaded ${Object.keys(airportData).length} airports from JS module`);
 } catch (error) {
-  console.error('Error loading airport data:', error);
+  console.error('Error loading airport data from JS module:', error);
+  // Fallback to JSON file
+  try {
+    const airports = JSON.parse(fs.readFileSync('iata-airports.json', 'utf8'));
+    airports.forEach(airport => {
+      airportData[airport.iata] = airport;
+    });
+    console.log(`Loaded ${Object.keys(airportData).length} airports from JSON fallback`);
+  } catch (jsonError) {
+    console.error('Error loading airport data from JSON:', jsonError);
+    console.error('No airport data available - all lookups will fail');
+  }
 }
 
 // In-memory data storage (resets daily)
