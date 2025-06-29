@@ -267,66 +267,91 @@ const Map = ({ data }) => {
         const currentCenter = map.getCenter();
         const currentZoom = map.getZoom();
         
-        // Step 1: Zoom to country (2 seconds)
-        console.log('🔍 Step 1: Zooming to booking location...');
-        map.panTo({ lat: booking.coordinates[0], lng: booking.coordinates[1] });
-        map.setZoom(6);
-        
-        await new Promise(resolve => {
-          animationTimeoutRef.current = setTimeout(resolve, 2000);
+        console.log('🎬 Animation starting for:', {
+          bookingId: booking.id,
+          airport: booking.airport,
+          coordinates: booking.coordinates,
+          currentZoom,
+          currentCenter: currentCenter.toJSON()
         });
         
-        // Step 2: Create pulsing marker for new booking (1-2 seconds)
+        // Step 1: Zoom to country (2 seconds)
+        console.log('🔍 Step 1: Zooming to booking location...');
+        
+        // Use smooth animation for panTo and setZoom
+        const targetLocation = { lat: booking.coordinates[0], lng: booking.coordinates[1] };
+        
+        // Animate to location with smooth transition
+        map.panTo(targetLocation);
+        
+        // Wait a bit for pan to start, then zoom
+        setTimeout(() => {
+          map.setZoom(8); // Increased zoom level for better visibility
+        }, 500);
+        
+        await new Promise(resolve => {
+          animationTimeoutRef.current = setTimeout(resolve, 2500); // Extended time for smooth transition
+        });
+        
+        // Step 2: Create pulsing marker for new booking (2 seconds)
         console.log('💓 Step 2: Creating pulse animation...');
+        
+        // Create a simple, highly visible pulsing marker
         const pulseMarker = new window.google.maps.Marker({
           position: { lat: booking.coordinates[0], lng: booking.coordinates[1] },
           map: map,
           icon: {
-            url: `data:image/svg+xml,${encodeURIComponent(`
-              <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60">
-                <defs>
-                  <radialGradient id="pulseGradient" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" style="stop-color:#ff6b6b;stop-opacity:1" />
-                    <stop offset="70%" style="stop-color:#ff8e8e;stop-opacity:0.8" />
-                    <stop offset="100%" style="stop-color:#ffb3b3;stop-opacity:0.3" />
-                  </radialGradient>
-                  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                    <feMerge> 
-                      <feMergeNode in="coloredBlur"/>
-                      <feMergeNode in="SourceGraphic"/>
-                    </feMerge>
-                  </filter>
-                </defs>
-                <circle cx="30" cy="30" r="25" fill="url(#pulseGradient)" filter="url(#glow)">
-                  <animate attributeName="r" values="20;30;20" dur="1s" repeatCount="indefinite"/>
-                  <animate attributeName="opacity" values="1;0.5;1" dur="1s" repeatCount="indefinite"/>
-                </circle>
-                <circle cx="30" cy="30" r="15" fill="#ff4757" stroke="#fff" stroke-width="2"/>
-                <text x="30" y="36" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="12" font-weight="bold">
-                  NEW
-                </text>
-              </svg>
-            `)}`,
-            scaledSize: new window.google.maps.Size(60, 60),
-            anchor: new window.google.maps.Point(30, 30)
+            path: window.google.maps.SymbolPath.CIRCLE,
+            fillColor: '#FF4444',
+            fillOpacity: 0.8,
+            strokeColor: '#FFFFFF',
+            strokeWeight: 3,
+            scale: 25
           },
-          title: `New Booking: ${booking.airportName} (${booking.airport})`
+          title: `🎯 NEW BOOKING: ${booking.airportName} (${booking.airport})`,
+          animation: window.google.maps.Animation.BOUNCE
         });
         
+        // Add a second larger circle for pulse effect
+        const pulseCircle = new window.google.maps.Circle({
+          strokeColor: '#FF4444',
+          strokeOpacity: 0.8,
+          strokeWeight: 2,
+          fillColor: '#FF4444',
+          fillOpacity: 0.2,
+          map: map,
+          center: { lat: booking.coordinates[0], lng: booking.coordinates[1] },
+          radius: 50000 // 50km radius
+        });
+        
+        // Animate the circle radius for pulse effect
+        let pulseRadius = 30000;
+        const pulseInterval = setInterval(() => {
+          pulseRadius = pulseRadius === 30000 ? 70000 : 30000;
+          pulseCircle.setRadius(pulseRadius);
+        }, 600);
+        
         await new Promise(resolve => {
-          animationTimeoutRef.current = setTimeout(resolve, 1500);
+          animationTimeoutRef.current = setTimeout(resolve, 2000);
         });
         
         // Step 3: Zoom back out (2 seconds)
         console.log('🔍 Step 3: Zooming back out...');
-        pulseMarker.setMap(null); // Remove pulse marker
+        
+        // Clean up pulse effects
+        clearInterval(pulseInterval);
+        pulseMarker.setMap(null);
+        pulseCircle.setMap(null);
+        
+        // Smooth zoom back to original view
+        setTimeout(() => {
+          map.setZoom(currentZoom);
+        }, 500);
         
         map.panTo(currentCenter);
-        map.setZoom(currentZoom);
         
         await new Promise(resolve => {
-          animationTimeoutRef.current = setTimeout(resolve, 2000);
+          animationTimeoutRef.current = setTimeout(resolve, 2500);
         });
         
         console.log('✅ Animation completed for booking:', booking.id);
