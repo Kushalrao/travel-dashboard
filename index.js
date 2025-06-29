@@ -52,15 +52,31 @@ cron.schedule('0 0 * * *', resetDailyData);
 function processBooking(booking) {
   const { booking_id, arrival, date, status } = booking;
   
-  // Only process confirmed bookings from today
-  if (status !== 'confirmed') return false;
+  console.log(`Processing booking: ${booking_id}, status: ${status}, date: ${date}`);
   
+  // Only process confirmed bookings
+  if (status !== 'confirmed') {
+    console.log(`❌ Booking ${booking_id} rejected: status is ${status}, not confirmed`);
+    return false;
+  }
+  
+  // More flexible date validation - accept bookings from today or recent dates
   const bookingDate = new Date(date);
   const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  // Reset times to compare dates only
   today.setHours(0, 0, 0, 0);
+  yesterday.setHours(0, 0, 0, 0);
   bookingDate.setHours(0, 0, 0, 0);
   
-  if (bookingDate.getTime() !== today.getTime()) return false;
+  console.log(`Date comparison: booking=${bookingDate.toISOString()}, today=${today.toISOString()}, yesterday=${yesterday.toISOString()}`);
+  
+  if (bookingDate.getTime() < yesterday.getTime() || bookingDate.getTime() > today.getTime()) {
+    console.log(`❌ Booking ${booking_id} rejected: date ${date} is not from today or yesterday`);
+    return false;
+  }
   
   // Look up airport data
   const airportInfo = airportData[arrival.airport];
