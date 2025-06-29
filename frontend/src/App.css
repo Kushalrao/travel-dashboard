@@ -161,8 +161,43 @@ body {
   color: #666;
 }
 
-/* Custom responsive adjustments for mobile */
+/* Horizontal Layout Styles */
+.dashboard-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: row;
+}
+
+.dashboard-left-panel {
+  flex: 0 0 40%;
+  background: #f0f2f5;
+  overflow: auto;
+  min-height: 100vh;
+}
+
+.dashboard-right-panel {
+  flex: 1;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Mobile Responsive - Stack Vertically */
 @media (max-width: 768px) {
+  .dashboard-container {
+    flex-direction: column;
+  }
+  
+  .dashboard-left-panel {
+    flex: none;
+    min-height: 50vh;
+    height: 50vh;
+  }
+  
+  .dashboard-right-panel {
+    flex: 1;
+    min-height: 50vh;
+  }
+  
   .ant-layout-header {
     padding: 0 16px !important;
   }

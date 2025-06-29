@@ -106,80 +106,51 @@ function App() {
   }
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Header style={{ 
-        background: '#000000',
-        padding: '0 24px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
-      }}>
-        <Space align="center">
-          <DashboardOutlined style={{ fontSize: '24px', color: 'white' }} />
-          <Title level={2} style={{ color: 'white', margin: 0 }}>
-            Travel Booking Dashboard
-          </Title>
-        </Space>
-        <Space align="center">
-          <ClockCircleOutlined style={{ color: 'white' }} />
-          <Text style={{ color: 'white' }}>
-            Last updated: {lastUpdate.toLocaleTimeString()}
-          </Text>
-        </Space>
-      </Header>
+    <div className="dashboard-container">
+      {/* Left Panel - Dashboard Data */}
+      <div className="dashboard-left-panel">
+        <div style={{ padding: '24px' }}>
+          {/* Last Updated Info */}
+          <div style={{ 
+            marginBottom: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'white',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}>
+            <Space align="center">
+              <ClockCircleOutlined style={{ color: '#1890ff' }} />
+              <Text strong>Last updated: {lastUpdate.toLocaleTimeString()}</Text>
+            </Space>
+            <Button 
+              type="text" 
+              icon={<ReloadOutlined />} 
+              onClick={fetchData}
+              size="small"
+            />
+          </div>
 
-      <Content style={{ padding: '24px', background: '#f0f2f5' }}>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <Card>
-            <Paragraph style={{ margin: 0, fontSize: '16px' }}>
-              Real-time analytics and insights from your travel booking data
-            </Paragraph>
+          {/* Dashboard Analytics */}
+          <Card 
+            style={{ 
+              height: 'calc(100vh - 120px)',
+              overflow: 'auto'
+            }}
+            bodyStyle={{ padding: '16px' }}
+          >
+            <Dashboard data={dashboardData} />
           </Card>
+        </div>
+      </div>
 
-          <Row gutter={[24, 24]}>
-            <Col span={24}>
-              <Card 
-                title={
-                  <Space>
-                    <DashboardOutlined />
-                    Analytics Dashboard
-                  </Space>
-                }
-                style={{ height: '100%' }}
-              >
-                <Dashboard data={dashboardData} />
-              </Card>
-            </Col>
-          </Row>
-
-          <Row gutter={[24, 24]}>
-            <Col span={24}>
-              <Card 
-                title={
-                  <Space>
-                    <GlobalOutlined />
-                    Global Booking Map
-                  </Space>
-                }
-                extra={<Text type="secondary">Interactive view of destination locations</Text>}
-                style={{ height: '600px' }}
-                bodyStyle={{ height: 'calc(100% - 57px)', padding: 0 }}
-              >
-                <MapComponent data={mapData} />
-              </Card>
-            </Col>
-          </Row>
-        </Space>
-      </Content>
-
-      <Footer style={{ textAlign: 'center', background: '#000000', color: 'white' }}>
-        <Space split={<span style={{ color: '#666' }}>|</span>}>
-          <Text style={{ color: 'white' }}>Powered by real-time Slack integration</Text>
-          <Text style={{ color: 'white' }}>Auto-refreshes every 30 seconds</Text>
-          <Text style={{ color: 'white' }}>Built with React & Google Maps</Text>
-        </Space>
-      </Footer>
-    </Layout>
+      {/* Right Panel - Map */}
+      <div className="dashboard-right-panel">
+        <MapComponent data={mapData} />
+      </div>
+    </div>
   );
 }
 
