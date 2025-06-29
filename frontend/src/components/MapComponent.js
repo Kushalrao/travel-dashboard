@@ -106,7 +106,6 @@ const Map = ({ data }) => {
   const [markers, setMarkers] = useState([]);
   const [animationQueue, setAnimationQueue] = useState([]);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [tileCacheStatus, setTileCacheStatus] = useState({});
   const animationTimeoutRef = useRef(null);
   const tileCacheRef = useRef(new Set());
 
@@ -520,7 +519,7 @@ const Map = ({ data }) => {
     };
 
     processNextAnimation();
-  }, [map, animationQueue, isAnimating]);
+  }, [map, animationQueue, isAnimating, waitForTilesLoaded]);
 
   // Cleanup animation timeout on unmount
   useEffect(() => {
