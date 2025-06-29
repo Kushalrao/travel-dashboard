@@ -156,75 +156,70 @@ app.post('/api/slack-webhook', (req, res) => {
   try {
     console.log('Received Slack webhook:', req.body);
     
-    // Extract message text from Slack payload
-    const messageText = req.body.text || '';
+    // Handle Slack URL verification challenge
+    if (req.body.type === 'url_verification') {
+      return res.json({ challenge: req.body.challenge });
+    }
     
-    // Try to parse JSON from message text
-    let bookingData;
-    try {
-      // Remove any markdown formatting and extract JSON
-      const jsonMatch = messageText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        bookingData = JSON.parse(jsonMatch[0]);
-      } else {
-        // If no JSON found, treat the whole message as potential JSON
-        bookingData = JSON.parse(messageText);
+    // Handle Slack events
+    if (req.body.type === 'event_callback') {
+      const event = req.body.event;
+      
+      // Only process message events
+      if (event.type !== 'message' || event.subtype) {
+        return res.json({ status: 'ignored', reason: 'Not a regular message' });
       }
-    } catch (parseError) {
-      console.log('Message is not valid JSON, ignoring:', messageText);
-      return res.json({ 
-        status: 'ignored', 
-        reason: 'Invalid JSON format',
-        message: 'Please send booking data in JSON format'
-      });
-    }
-    
-    // Validate booking data structure
-    if (!bookingData.booking_id || !bookingData.arrival?.airport || !bookingData.date || !bookingData.status) {
-      console.log('Invalid booking data structure:', bookingData);
-      return res.json({ 
-        status: 'error', 
-        reason: 'Missing required fields',
-        required: ['booking_id', 'arrival.airport', 'date', 'status'],
-        received: bookingData
-      });
-    }
-    
-    // Process the booking
-    const processed = processBooking(bookingData);
-    
-    if (processed) {
-      console.log(`✅ Processed booking: ${bookingData.booking_id} → ${bookingData.arrival.airport}`);
       
-      // Send confirmation back to Slack
-      const airportInfo = airportData[bookingData.arrival.airport];
-      const confirmationMessage = {
-        text: `✅ Booking processed successfully!`,
-        attachments: [{
-          color: 'good',
-          fields: [
-            { title: 'Booking ID', value: bookingData.booking_id, short: true },
-            { title: 'Destination', value: `${bookingData.arrival.airport} - ${airportInfo?.airport}`, short: true },
-            { title: 'Country', value: airportInfo?.country, short: true },
-            { title: 'Date', value: bookingData.date, short: true }
-          ],
-          footer: `Total bookings today: ${dailyData.totalBookings}`
-        }]
-      };
+      // Extract message text
+      const messageText = event.text || '';
       
-      res.json({ 
-        status: 'processed', 
-        booking: bookingData,
-        totalBookings: dailyData.totalBookings,
-        response: confirmationMessage
-      });
+      // Try to parse JSON from message text
+      let bookingData;
+      try {
+        // Remove any markdown formatting and extract JSON
+        const jsonMatch = messageText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          bookingData = JSON.parse(jsonMatch[0]);
+        } else {
+          // If no JSON found, treat the whole message as potential JSON
+          bookingData = JSON.parse(messageText);
+        }
+      } catch (parseError) {
+        console.log('Message is not valid JSON, ignoring:', messageText);
+        return res.json({ status: 'ignored', reason: 'Invalid JSON format' });
+      }
+      
+      // Validate booking data structure
+      if (!bookingData.booking_id || !bookingData.arrival?.airport || !bookingData.date || !bookingData.status) {
+        console.log('Invalid booking data structure:', bookingData);
+        return res.json({ status: 'ignored', reason: 'Invalid booking format' });
+      }
+      
+      // Process the booking
+      const processed = processBooking(bookingData);
+      
+      if (processed) {
+        console.log(`✅ Processed booking: ${bookingData.booking_id} → ${bookingData.arrival.airport}`);
+        const airportInfo = airportData[bookingData.arrival.airport];
+        
+        res.json({ 
+          status: 'processed', 
+          booking: bookingData,
+          totalBookings: dailyData.totalBookings,
+          destination: `${bookingData.arrival.airport} - ${airportInfo?.airport}`,
+          country: airportInfo?.country
+        });
+      } else {
+        console.log(`❌ Booking not processed: ${bookingData.booking_id}`);
+        res.json({ 
+          status: 'not_processed', 
+          booking: bookingData,
+          reason: 'Booking must be confirmed status and from today'
+        });
+      }
     } else {
-      console.log(`❌ Booking not processed: ${bookingData.booking_id}`);
-      res.json({ 
-        status: 'not_processed', 
-        booking: bookingData,
-        reason: 'Booking must be confirmed status and from today'
-      });
+      // Not an event we care about
+      res.json({ status: 'ignored', reason: 'Not a message event' });
     }
     
   } catch (error) {
