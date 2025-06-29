@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, Typography, Space, Spin, Alert, Button, Card, Row, Col } from 'antd';
-import { DashboardOutlined, GlobalOutlined, ReloadOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { Layout, Typography, Space, Spin, Alert, Button, Card } from 'antd';
+import { ReloadOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import Dashboard from './components/Dashboard';
 import MapComponent from './components/MapComponent';
 import './App.css';
 
-const { Header, Content, Footer } = Layout;
-const { Title, Text, Paragraph } = Typography;
+const { Content } = Layout;
+const { Title, Text } = Typography;
 
 function App() {
   const [dashboardData, setDashboardData] = useState(null);
