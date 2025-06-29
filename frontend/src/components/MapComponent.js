@@ -21,7 +21,6 @@ const Map = ({ data }) => {
   const [animationQueue, setAnimationQueue] = useState([]);
   const [isAnimating, setIsAnimating] = useState(false);
   const animationTimeoutRef = useRef(null);
-  const eventSourceRef = useRef(null);
 
   const ref = useCallback((node) => {
     if (node !== null) {
@@ -204,7 +203,7 @@ const Map = ({ data }) => {
 
   }, [map, data, markers]);
 
-  // Set up Server-Sent Events connection for real-time bookings
+  // Set up polling for real-time bookings
   useEffect(() => {
     if (!map) return;
 
@@ -212,36 +211,44 @@ const Map = ({ data }) => {
       ? 'https://travel-dashboard-gold.vercel.app' 
       : 'http://localhost:3000';
 
-    console.log('🔌 Setting up SSE connection to:', `${API_BASE}/api/events`);
+    console.log('🔄 Setting up polling for recent bookings from:', `${API_BASE}/api/recent-bookings`);
     
-    const eventSource = new EventSource(`${API_BASE}/api/events`);
-    eventSourceRef.current = eventSource;
-
-    eventSource.onopen = () => {
-      console.log('✅ SSE connection opened');
-    };
-
-    eventSource.onmessage = (event) => {
+    let processedBookingIds = new Set();
+    
+    const pollForBookings = async () => {
       try {
-        const data = JSON.parse(event.data);
-        console.log('📨 SSE message received:', data);
-
-        if (data.type === 'new_booking') {
-          console.log('🎯 New booking animation queued:', data.booking);
-          setAnimationQueue(prev => [...prev, data.booking]);
+        const response = await fetch(`${API_BASE}/api/recent-bookings`);
+        const data = await response.json();
+        
+        // Process only new bookings that haven't been animated yet
+        data.bookings.forEach(booking => {
+          if (!processedBookingIds.has(booking.id)) {
+            console.log('🎯 New booking detected for animation:', booking.id);
+            setAnimationQueue(prev => [...prev, booking]);
+            processedBookingIds.add(booking.id);
+          }
+        });
+        
+        // Clean up old processed IDs (keep last 50)
+        if (processedBookingIds.size > 50) {
+          const idsArray = Array.from(processedBookingIds);
+          processedBookingIds = new Set(idsArray.slice(-30));
         }
+        
       } catch (error) {
-        console.error('❌ Error parsing SSE message:', error);
+        console.error('❌ Error polling for bookings:', error);
       }
     };
 
-    eventSource.onerror = (error) => {
-      console.error('❌ SSE connection error:', error);
-    };
+    // Initial poll
+    pollForBookings();
+    
+    // Poll every 3 seconds
+    const pollInterval = setInterval(pollForBookings, 3000);
 
     return () => {
-      console.log('🔌 Closing SSE connection');
-      eventSource.close();
+      console.log('🔄 Stopping booking polls');
+      clearInterval(pollInterval);
     };
   }, [map]);
 
