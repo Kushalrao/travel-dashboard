@@ -5,6 +5,7 @@ const mapOptions = {
   zoom: 2,
   center: { lat: 20, lng: 0 },
   mapTypeId: 'roadmap',
+  mapId: '2cdb21a165df80febb776608', // Original Map ID with custom style from "flighty project"
   disableDefaultUI: false,
   zoomControl: true,
   mapTypeControl: false,
