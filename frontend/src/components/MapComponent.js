@@ -36,7 +36,7 @@ const createSimpleMarker = (position, map, markerInfo) => {
         color: white;
         border: 2px solid white;
         border-radius: 6px;
-        padding: 4px 10px;
+        padding: 4px 8px;
         font-family: Arial, sans-serif;
         font-size: 13px;
         font-weight: bold;
@@ -47,10 +47,10 @@ const createSimpleMarker = (position, map, markerInfo) => {
         display: flex;
         flex-direction: row;
         align-items: center;
-        gap: 8px;
+        gap: 4px;
       ">
         <span>${markerInfo.iata}</span>
-        <span style='font-size: 12px; background: #222; color: #fff; border-radius: 10px; padding: 2px 8px; margin-left: 4px;'>${markerInfo.count}</span>
+        <span style='font-size: 12px; background: #222; color: #fff; border-radius: 10px; padding: 2px 8px; margin-left: 0;'>${markerInfo.count}</span>
       </div>
     `;
     
@@ -130,28 +130,7 @@ const Map = ({ data }) => {
 
     setMarkers(newMarkers);
 
-    // Only fit bounds on initial load (when we have markers but map is at default position)
-    if (data.length > 0 && markers.length === 0) {
-      const bounds = new window.google.maps.LatLngBounds();
-      data.forEach(location => {
-        const lat = location.coordinates ? location.coordinates[0] : location.lat;
-        const lng = location.coordinates ? location.coordinates[1] : location.lng;
-        
-        if (lat && lng) {
-          bounds.extend(new window.google.maps.LatLng(lat, lng));
-        }
-      });
-      
-      if (!bounds.isEmpty()) {
-        map.fitBounds(bounds);
-        
-        // Ensure minimum zoom level
-        const listener = window.google.maps.event.addListener(map, 'bounds_changed', () => {
-          if (map.getZoom() > 10) map.setZoom(10);
-          window.google.maps.event.removeListener(listener);
-        });
-      }
-    }
+    // Removed: No more auto-fit or fitBounds logic
   }, [map, data, markers]);
 
   // Cleanup markers on unmount
