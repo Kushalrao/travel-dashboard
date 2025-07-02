@@ -104,10 +104,16 @@ const Map = ({ data }) => {
 
     // Create new markers for current data
     const newMarkers = data.map(location => {
-      const position = new window.google.maps.LatLng(
-        location.coordinates[0], 
-        location.coordinates[1]
-      );
+      // Handle both coordinate formats: coordinates array or lat/lng properties
+      const lat = location.coordinates ? location.coordinates[0] : location.lat;
+      const lng = location.coordinates ? location.coordinates[1] : location.lng;
+      
+      if (!lat || !lng) {
+        console.warn('Missing coordinates for location:', location);
+        return null;
+      }
+      
+      const position = new window.google.maps.LatLng(lat, lng);
       
       return createSimpleMarker(position, map, {
         iata: location.iata,
@@ -116,7 +122,7 @@ const Map = ({ data }) => {
         country: location.country,
         continent: location.continent
       });
-    });
+    }).filter(marker => marker !== null); // Remove null markers
 
     setMarkers(newMarkers);
 
@@ -124,18 +130,23 @@ const Map = ({ data }) => {
     if (data.length > 0) {
       const bounds = new window.google.maps.LatLngBounds();
       data.forEach(location => {
-        bounds.extend(new window.google.maps.LatLng(
-          location.coordinates[0], 
-          location.coordinates[1]
-        ));
+        const lat = location.coordinates ? location.coordinates[0] : location.lat;
+        const lng = location.coordinates ? location.coordinates[1] : location.lng;
+        
+        if (lat && lng) {
+          bounds.extend(new window.google.maps.LatLng(lat, lng));
+        }
       });
-      map.fitBounds(bounds);
       
-      // Ensure minimum zoom level
-      const listener = window.google.maps.event.addListener(map, 'bounds_changed', () => {
-        if (map.getZoom() > 10) map.setZoom(10);
-        window.google.maps.event.removeListener(listener);
-      });
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds);
+        
+        // Ensure minimum zoom level
+        const listener = window.google.maps.event.addListener(map, 'bounds_changed', () => {
+          if (map.getZoom() > 10) map.setZoom(10);
+          window.google.maps.event.removeListener(listener);
+        });
+      }
     }
   }, [map, data, markers]);
 
