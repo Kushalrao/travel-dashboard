@@ -126,8 +126,8 @@ const Map = ({ data }) => {
 
     setMarkers(newMarkers);
 
-    // Fit map to show all markers if there are any
-    if (data.length > 0) {
+    // Only fit bounds on initial load (when we have markers but map is at default position)
+    if (data.length > 0 && markers.length === 0) {
       const bounds = new window.google.maps.LatLngBounds();
       data.forEach(location => {
         const lat = location.coordinates ? location.coordinates[0] : location.lat;
