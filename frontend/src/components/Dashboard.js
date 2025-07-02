@@ -6,29 +6,8 @@ import {
   EnvironmentOutlined,
   RocketOutlined
 } from '@ant-design/icons';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-} from 'chart.js';
-import { Bar, Doughnut } from 'react-chartjs-2';
 
 const { Text } = Typography;
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement
-);
 
 const Dashboard = ({ data }) => {
   if (!data) {
@@ -41,87 +20,6 @@ const Dashboard = ({ data }) => {
       </Card>
     );
   }
-
-  // Prepare chart data for top airports
-  const airportsChartData = {
-    labels: data.topAirports.map(airport => `${airport.iata} (${airport.country})`),
-    datasets: [
-      {
-        label: 'Bookings',
-        data: data.topAirports.map(airport => airport.count),
-        backgroundColor: [
-          '#FF6384',
-          '#36A2EB',
-          '#FFCE56',
-          '#4BC0C0',
-          '#9966FF',
-          '#FF9F40',
-          '#FF6384',
-          '#C9CBCF',
-          '#4BC0C0',
-          '#FF6384'
-        ],
-        borderColor: '#fff',
-        borderWidth: 2,
-      },
-    ],
-  };
-
-  // Prepare chart data for continents
-  const continentsChartData = {
-    labels: data.continentData.map(continent => continent.continent),
-    datasets: [
-      {
-        label: 'Bookings by Continent',
-        data: data.continentData.map(continent => continent.count),
-        backgroundColor: [
-          '#FF6384',
-          '#36A2EB',
-          '#FFCE56',
-          '#4BC0C0',
-          '#9966FF',
-          '#FF9F40',
-          '#FF6384'
-        ],
-        borderColor: '#fff',
-        borderWidth: 2,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: 'top',
-      },
-      title: {
-        display: true,
-        text: 'Booking Statistics',
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: {
-          stepSize: 1,
-        },
-      },
-    },
-  };
-
-  const doughnutOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: 'right',
-      },
-      title: {
-        display: true,
-        text: 'Bookings by Continent',
-      },
-    },
-  };
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
@@ -172,32 +70,11 @@ const Dashboard = ({ data }) => {
         </Col>
       </Row>
 
-      {/* Charts Section */}
-      <Row gutter={[24, 24]}>
-        {/* Top Airports Chart */}
-        {data.topAirports.length > 0 && (
-          <Col xs={24} lg={12}>
-                          <Card title="Top Destination Airports" style={{ height: '400px' }}>
-              <Bar data={airportsChartData} options={chartOptions} />
-            </Card>
-          </Col>
-        )}
-
-        {/* Continents Chart */}
-        {data.continentData.length > 0 && (
-          <Col xs={24} lg={12}>
-                          <Card title="Bookings by Continent" style={{ height: '400px' }}>
-              <Doughnut data={continentsChartData} options={doughnutOptions} />
-            </Card>
-          </Col>
-        )}
-      </Row>
-
       {/* Top Lists */}
       <Row gutter={[24, 24]}>
         {/* Top Countries */}
         <Col xs={24} md={12}>
-                     <Card title="Top Countries">
+          <Card title="Top Countries">
             <List
               dataSource={data.topCountries.slice(0, 5)}
               locale={{ emptyText: 'No bookings yet today' }}
@@ -216,7 +93,7 @@ const Dashboard = ({ data }) => {
 
         {/* Top Airports */}
         <Col xs={24} md={12}>
-                     <Card title="Top Airports">
+          <Card title="Top Airports">
             <List
               dataSource={data.topAirports.slice(0, 5)}
               locale={{ emptyText: 'No bookings yet today' }}
@@ -236,9 +113,9 @@ const Dashboard = ({ data }) => {
 
       {/* Last Updated */}
       <Card style={{ textAlign: 'center' }}>
-                 <Text type="secondary">
-           Last updated: {new Date(data.lastUpdated).toLocaleString()}
-         </Text>
+        <Text type="secondary">
+          Last updated: {new Date(data.lastUpdated).toLocaleString()}
+        </Text>
       </Card>
     </Space>
   );
