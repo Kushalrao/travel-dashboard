@@ -32,21 +32,25 @@ const createSimpleMarker = (position, map, markerInfo) => {
     
     div.innerHTML = `
       <div style="
-        background: white;
-        color: black;
-        border: 2px solid black;
+        background: black;
+        color: white;
+        border: 2px solid white;
         border-radius: 6px;
-        padding: 4px 8px;
+        padding: 4px 10px;
         font-family: Arial, sans-serif;
-        font-size: 12px;
+        font-size: 13px;
         font-weight: bold;
         text-align: center;
         min-width: 40px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.3);
         white-space: nowrap;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
       ">
-        ${markerInfo.iata}<br/>
-        ${markerInfo.count}
+        <span>${markerInfo.iata}</span>
+        <span style='font-size: 12px; background: #222; color: #fff; border-radius: 10px; padding: 2px 8px; margin-left: 4px;'>${markerInfo.count}</span>
       </div>
     `;
     
